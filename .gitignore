@@ -1,0 +1,11 @@
+.rake_test_cache
+*.pem
+*.key
+*.pub
+.chef
+*.gem
+*.yml
+tmp/*
+test/*
+*.old
+Gemfile.lock

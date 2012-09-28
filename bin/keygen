@@ -1,0 +1,14 @@
+#!/bin/bash
+
+function keygen/gen() {
+	local _k=${1:-client}
+	local _sec=${_k}.sec
+	local _pub=${_k}.pub
+  openssl genrsa -des3 -out ${_sec} 2048
+  openssl rsa -in ${_sec} -out ${_pub} -outform PEM -pubout
+}
+
+echo "Generating server key"
+keygen/gen server
+echo "Generating client key"
+keygen/gen client
