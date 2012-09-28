@@ -158,7 +158,7 @@ module Pushare
             last = thread[:last]
             
             delay = Time.now.to_i - last
-            if delay > 60
+            if delay > thred[:delay]
               [:iv,:key,:time].each {|k| @cfg[:pushare][:channels][:data].delete(k)}
               @log.debug("[#{__method__}] timeout")             
             else
