@@ -19,16 +19,14 @@ version Pushare::VERSION
 desc 'Debug'
 switch [:d,:debug]
 
-desc 'Test'
-switch [:t,:test]
-
 desc 'config'
 default_value 'pushare.yml'
-arg_name 'The name of the argument'
+arg_name 'Configuration file'
 flag [:c,:config]
 
 desc 'id'
-arg_name 'The name of the argument'
+default_value 'client'
+arg_name 'Agent id'
 flag [:i,:id]
 
 desc 'server'
@@ -48,26 +46,34 @@ command :server do |c|
     Pusher.key = @config[:pushare][:pusher][:key]
     Pusher.secret = @config[:pushare][:pusher][:secret]
     PusherClient.logger = Logger.new(STDOUT)
+    PusherClient.logger.level = Logger::WARN
 
-    server = Pushare::Server.new(@config)
+    # trap("INT") do
+    #  @client_loop.kill
+    #  @agent.stop
+    #end
 
+    agent = Pushare::Agent.new(@config,:server,:client)
 
-    # issue new key
-    # server.trKey
-
-    # events
-    _chan,_event = server.guff(:data,:onData)
-    server.socket[_chan].bind(_event) do |data|
-      server.onData(_chan,_event,data)
+    client_loop = Thread.new do
+      client = Pushare::Agent.new(@config,:client,:server)
+      _chan,_event = client.guff(:control,:onKey)
+      client.socket[_chan].bind(_event) do |data|
+        client.onKey(_chan,_event,data)
+      end
+      client.connect
     end
 
-    # todo: keychange
+    _chan,_event = agent.guff(:data,:onData)
+    agent.socket[_chan].bind(_event) do |data|
+      agent.onData(_chan,_event,data)
+    end
 
     # key loop
-    server.key_loop
+    agent.control_loop
 
     # main loop
-    server.connect
+    agent.connect
   end
 end
 
@@ -89,28 +95,31 @@ command :client do |c|
     Pusher.key = @config[:pushare][:pusher][:key]
     Pusher.secret = @config[:pushare][:pusher][:secret]
     PusherClient.logger = Logger.new(STDOUT)   
+    PusherClient.logger.level = Logger::WARN
 
-    client = Pushare::Client.new(@config)
+    agent = Pushare::Agent.new(@config,:client,:server)
+
+    # trap("INT") { agent.stop }
 
     case args[0]
     when "stat"
-      client.cfg[:pushare][:threads][:data][:trData].each do |task,opts|
-        client.send(task.to_sym,opts)
+      agent.cfg[:pushare][:threads][:data][:trData].each do |task,opts|
+        agent.send(task.to_sym,opts)
       end
       exit(1)
     end
 
     # events
-    _chan,_event = client.guff(:control,:onKey)
-    client.socket[_chan].bind(_event) do |data|
-      client.onKey(_chan,_event,data)
+    _chan,_event = agent.guff(:control,:onKey)
+    agent.socket[_chan].bind(_event) do |data|
+      agent.onKey(_chan,_event,data)
     end
 
     # data loop
-    client.data_loop
+    agent.data_loop
    
     # main loop
-    client.connect
+    agent.connect
   end
 end
 

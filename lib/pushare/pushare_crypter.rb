@@ -50,38 +50,36 @@ module Pushare
     end
 
     def encode(redux,data)
+      log = "data(#{data.to_s.size})"
       redux.inject(data) do |enc,encoder|
         data = send(encoder.to_sym, data, :encode)
-        @log.debug("[#{__method__}] #{encoder}")
+        log+=" #{encoder}(#{data.to_s.size})"
       end
+      @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] #{log}")
       data
     end
 
     def decode(redux,data)
+      log = " data(#{data.to_s.size})"
       redux.reverse.inject(data) do |enc,encoder|
         data = send(encoder.to_sym, data, :decode)
-        @log.debug("[#{__method__}] #{encoder} (#{data.size})")
+        log+=" #{encoder}(#{data.to_s.size})"
       end
+      @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}]#{log}")
       data
     end
 
     def enchan(_chan,_event,data)
       chan,event = ffug(_chan,_event)
+      @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] event: #{chan}/#{event}")
       enc = encode(@cfg[:pushare][:channels][chan.to_sym][:redux], data)
-      @log.debug("[#{__method__}] #{chan}(#{_chan})/#{event}(#{_event})")
-      @log.debug("[#{__method__}] data: #{data}")
-      # @log.debug("[#{__method__}] enc : #{enc}")
-      @log.debug("[#{__method__}] size: #{data.size}(#{enc.size})")
       enc
     end
 
     def dechan(_chan,_event,data)
       chan,event  = ffug(_chan,_event)
+      @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] event: #{chan}/#{event}")
       dec = decode(@cfg[:pushare][:channels][chan.to_sym][:redux],data)
-      @log.debug("[#{__method__}] #{chan}(#{_chan})/#{event}(#{_event})")
-      # @log.debug("[#{__method__}] data: #{data}")
-      @log.debug("[#{__method__}] dec : #{dec}")
-      @log.debug("[#{__method__}] size: #{data.size}(#{dec.size})")
       dec
     end
 

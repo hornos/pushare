@@ -12,12 +12,11 @@ spec = Gem::Specification.new do |s|
   s.files = %w(
 bin/pushare
 lib/pushare/version.rb
-lib/pushare/pushare_client.rb
+lib/pushare/pushare_agent.rb
 lib/pushare/pushare_crypter.rb
 lib/pushare/pushare_data_agent.rb
 lib/pushare/pushare_encoder.rb
 lib/pushare/pushare_pusher_agent.rb
-lib/pushare/pushare_server.rb
 lib/pushare.rb
   )
   s.require_paths << 'lib'
