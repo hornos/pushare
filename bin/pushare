@@ -27,6 +27,10 @@ default_value 'pushare.yml'
 arg_name 'The name of the argument'
 flag [:c,:config]
 
+desc 'id'
+arg_name 'The name of the argument'
+flag [:i,:id]
+
 desc 'server'
 arg_name ''
 command :server do |c|
@@ -35,6 +39,7 @@ command :server do |c|
     puts "Options: #{options.inspect}"
     puts "Args:    #{args.inspect}"
 
+    @config[:pushare][:id] = global_options[:id] if global_options.has_key? :id
     @config[:pushare][:args] = args
     @config[:pushare][:global_options] = global_options
     @config[:pushare][:options] = options
@@ -46,16 +51,20 @@ command :server do |c|
 
     server = Pushare::Server.new(@config)
 
+
+    # issue new key
+    # server.trKey
+
     # events
     _chan,_event = server.guff(:data,:onData)
     server.socket[_chan].bind(_event) do |data|
       server.onData(_chan,_event,data)
     end
 
-    # issue new key
-    server.trKey
+    # todo: keychange
 
     # key loop
+    server.key_loop
 
     # main loop
     server.connect
@@ -71,6 +80,7 @@ command :client do |c|
     puts "Options: #{options.inspect}"
     puts "Args:    #{args.inspect}"
 
+    @config[:pushare][:id] = global_options[:id] if global_options.has_key? :id
     @config[:pushare][:args] = args
     @config[:pushare][:global_options] = global_options
     @config[:pushare][:options] = options

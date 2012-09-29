@@ -1,5 +1,10 @@
 require 'pushare/version.rb'
-require 'pushare/pushare.rb'
+require 'pushare/pushare_crypter.rb'
+require 'pushare/pushare_data_agent.rb'
+require 'pushare/pushare_encoder.rb'
+require 'pushare/pushare_pusher_agent.rb'
+require 'pushare/pushare_server.rb'
+require 'pushare/pushare_client.rb'
 
 # Add requires for other files you add to your project here, so
 # you just need to require this one file in your bin file
