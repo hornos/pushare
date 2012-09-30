@@ -48,14 +48,10 @@ command :server do |c|
     PusherClient.logger = Logger.new(STDOUT)
     PusherClient.logger.level = Logger::WARN
 
-    # trap("INT") do
-    #  @client_loop.kill
-    #  @agent.stop
-    #end
 
     agent = Pushare::Agent.new(@config,:server,:client)
 
-    client_loop = Thread.new do
+    client_thread = Thread.new do
       client = Pushare::Agent.new(@config,:client,:server)
       _chan,_event = client.guff(:control,:onKey)
       client.socket[_chan].bind(_event) do |data|
@@ -70,7 +66,7 @@ command :server do |c|
     end
 
     # key loop
-    agent.control_loop
+    agent.control_thread
 
     # main loop
     agent.connect
@@ -115,8 +111,13 @@ command :client do |c|
       agent.onKey(_chan,_event,data)
     end
 
+    _chan,_event = agent.guff(:control,:onExit)
+    agent.socket[_chan].bind(_event) do |data|
+      agent.onExit(_chan,_event,data)
+    end
+
     # data loop
-    agent.data_loop
+    agent.data_thread
    
     # main loop
     agent.connect

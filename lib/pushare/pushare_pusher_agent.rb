@@ -36,6 +36,7 @@ module Pushare
         @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] self key")
       else
         @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] new key from: #{dec[0]}")
+        
         # friendly fire
         if not @cfg[:pushare][:threads][:control][:thread].nil?
           status = @cfg[:pushare][:threads][:control][:thread].status
@@ -44,9 +45,18 @@ module Pushare
             @cfg[:pushare][:threads][:control][:thread].exit
           end
         end
+        
         dec[1].each do |chan,opts|
           @cfg[:pushare][:channels][chan.to_sym] = Hash[opts.map{ |k, v| [k.to_sym, v] }]
           @cfg[:pushare][:threads][chan.to_sym][:last] = Time.now.to_i
+        end
+
+        if not @cfg[:pushare][:threads][:data][:thread].nil?
+          status = @cfg[:pushare][:threads][:data][:thread].status
+          if status == 'sleep'
+            @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] resume data thread (#{status})")
+            @cfg[:pushare][:threads][:data][:thread].run
+          end
         end
       end 
     end
@@ -65,8 +75,19 @@ module Pushare
       rescue Exception => ex
         @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] data error: #{ex.inspect}")        
       end
+      puts dec.inspect
     end
 
+    def trExit(data='all',chan=:control,event=:onExit)
+      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger: #{chan.to_s}/#{event.to_s}")
+      trigger(chan,event,data)      
+    end    
+
+    def onExit(_chan,_event,data)
+     dec = dechan(_chan,_event,data)
+     @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] exit from: #{dec[0]}")
+     exit(1)
+    end
 
     def subscribe(chan)
       @socket.subscribe(guff(chan))
@@ -82,15 +103,9 @@ module Pushare
 
     end
 
-    def stop
-      @cfg[:pushare][:threads][:control][:thread].kill if not @cfg[:pushare][:threads][:control][:thread].nil?
-      @cfg[:pushare][:threads][:data][:thread].kill if not @cfg[:pushare][:threads][:data][:thread].nil?
-      exit(0)   
-    end
-
-    def control_loop
+    def control_thread
       @cfg[:pushare][:threads][:control][:thread] = Thread.new do
-
+        # todd event machine
         loop do
           @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger key")
           trKey
@@ -100,10 +115,10 @@ module Pushare
     end
 
 
-    def data_loop
+    def data_thread
       @cfg[:pushare][:threads][:data][:thread] = Thread.new do
         last = 0
-
+        # todo event machine
         loop do
           chan = @cfg[:pushare][:channels][:data]
           thread = @cfg[:pushare][:threads][:data]
@@ -126,8 +141,7 @@ module Pushare
             end           
           else
             @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] waiting")
-            key_check = @cfg[:pushare][:threads][:data][:key_check]
-            sleep key_check           
+            Thread.stop          
           end
         end # data loop
       end # Thread
