@@ -33,21 +33,7 @@ desc 'server'
 arg_name ''
 command :server do |c|
   c.action do |global_options,options,args|
-    puts "Global:  #{global_options.inspect}"
-    puts "Options: #{options.inspect}"
-    puts "Args:    #{args.inspect}"
-
-    @config[:pushare][:id] = global_options[:id] if global_options.has_key? :id
-    @config[:pushare][:args] = args
-    @config[:pushare][:global_options] = global_options
-    @config[:pushare][:options] = options
-
-    Pusher.app_id = @config[:pushare][:pusher][:app_id]
-    Pusher.key = @config[:pushare][:pusher][:key]
-    Pusher.secret = @config[:pushare][:pusher][:secret]
-    PusherClient.logger = Logger.new(STDOUT)
-    PusherClient.logger.level = Logger::WARN
-
+    init_config(global_options,options,args)
 
     agent = Pushare::Agent.new(@config,:server,:client)
 
@@ -78,32 +64,9 @@ desc 'client'
 arg_name ''
 command :client do |c|
   c.action do |global_options,options,args|
-    puts "Global:  #{global_options.inspect}"
-    puts "Options: #{options.inspect}"
-    puts "Args:    #{args.inspect}"
-
-    @config[:pushare][:id] = global_options[:id] if global_options.has_key? :id
-    @config[:pushare][:args] = args
-    @config[:pushare][:global_options] = global_options
-    @config[:pushare][:options] = options
-
-    Pusher.app_id = @config[:pushare][:pusher][:app_id]
-    Pusher.key = @config[:pushare][:pusher][:key]
-    Pusher.secret = @config[:pushare][:pusher][:secret]
-    PusherClient.logger = Logger.new(STDOUT)   
-    PusherClient.logger.level = Logger::WARN
+    init_config(global_options,options,args)
 
     agent = Pushare::Agent.new(@config,:client,:server)
-
-    # trap("INT") { agent.stop }
-
-    case args[0]
-    when "stat"
-      agent.cfg[:pushare][:threads][:data][:trData].each do |task,opts|
-        agent.send(task.to_sym,opts)
-      end
-      exit(1)
-    end
 
     # events
     _chan,_event = agent.guff(:control,:onKey)
@@ -150,8 +113,23 @@ on_error do |exception|
   # Error logic here
   # return false to skip default error handling
   puts exception.backtrace
-  # binding.pry
   true
+end
+
+def init_config(global_options,options,args)
+  puts "Global:  #{global_options.inspect}"
+  puts "Options: #{options.inspect}"
+  puts "Args:    #{args.inspect}"
+  @config[:pushare][:id] = global_options[:id] if global_options.has_key? :id
+  @config[:pushare][:args] = args
+  @config[:pushare][:global_options] = global_options
+  @config[:pushare][:options] = options
+  Pusher.app_id = @config[:pushare][:pusher][:app_id]
+  Pusher.key = @config[:pushare][:pusher][:key]
+  Pusher.secret = @config[:pushare][:pusher][:secret]
+  Pusher.encrypted = true
+  PusherClient.logger = Logger.new(STDOUT)
+  PusherClient.logger.level = Logger::WARN
 end
 
 exit run(ARGV)

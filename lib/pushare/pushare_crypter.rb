@@ -12,7 +12,12 @@ module Pushare
       @rsa_enc_key = OpenSSL::PKey::RSA.new(File.read(rsa_enc_key))
     end
 
-    def symmetric(aes="aes-256-cbc",sha2=256)
+    def init_crypter(inb=:client,outb=:server)
+      inbound(inb)
+      outbound(outb)
+    end
+
+    def init_cipher(aes="aes-256-cbc",sha2=256)
       @cipher = OpenSSL::Cipher::Cipher.new(aes)
       @cipher.decrypt
       @hasher = Digest::SHA2.new(sha2)

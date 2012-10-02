@@ -16,6 +16,7 @@ lib/pushare/pushare_agent.rb
 lib/pushare/pushare_crypter.rb
 lib/pushare/pushare_data_agent.rb
 lib/pushare/pushare_encoder.rb
+lib/pushare/pushare_events_core.rb
 lib/pushare/pushare_pusher_agent.rb
 lib/pushare.rb
   )

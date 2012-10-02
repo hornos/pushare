@@ -2,6 +2,7 @@ require 'pushare/version.rb'
 require 'pushare/pushare_crypter.rb'
 require 'pushare/pushare_data_agent.rb'
 require 'pushare/pushare_encoder.rb'
+require 'pushare/pushare_events_core.rb'
 require 'pushare/pushare_pusher_agent.rb'
 require 'pushare/pushare_agent.rb'
 

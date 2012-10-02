@@ -5,6 +5,7 @@ module Pushare
     include Encoder
     include PusherAgent
     include DataAgent
+    include Events
 
     attr_accessor :socket
     attr_accessor :cfg
@@ -18,14 +19,13 @@ module Pushare
       end
  
       # init rsa
-      inbound(inb)
-      outbound(outb)
+      init_crypter(inb,outb)
 
       # init aes
-      symmetric
+      init_cipher
 
       # init pusher
-      socketalize
+      init_pusher
 
     end
   end 
