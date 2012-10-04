@@ -1,7 +1,16 @@
 class Hash
+  # http://grosser.it/2009/04/14/recursive-symbolize_keys/
   def recursive_symbolize_keys!
     symbolize_keys!
     values.select { |v| v.is_a?(Hash) }.each { |h| h.recursive_symbolize_keys! }
+  end
+
+  # http://apidock.com/rails/Hash/symbolize_keys%21
+  def symbolize_keys!
+    keys.each do |key|
+      self[(key.to_sym rescue key) || key] = delete(key)
+    end
+    self
   end
 end
 
