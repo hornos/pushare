@@ -2,13 +2,18 @@ module Pushare
   module Events
 
     # key xc
-    def trKey(target=:data,chan=:control,event=:onKey)
-      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] #{chan.to_s}/#{event.to_s} for #{target.to_s}")
-      trigger!(chan,event,keygen(target))
+    def trKey(data=:data,chan=:control,event=:onKey)
+      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] #{chan.to_s}/#{event.to_s} for #{data.to_s}")
+      trigger(keygen(data),chan,event)
     end
 
-    def onKey(_chan,_event,data)
-      dec = dechan(_chan,_event,data)
+    def trKey!(chan=:control,event=:onKey)
+      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] #{chan.to_s}/#{event.to_s} for #{data.to_s}")
+      trigger!(keygen(data),chan,event,:data)
+    end
+
+    def onKey(data,_chan,_event)
+      dec = dechan(data,_chan,_event)
       if dec[0] == @cfg[:pushare][:id]
         @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] self key")
         return
@@ -17,38 +22,53 @@ module Pushare
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] keygen: #{dec[0]}")
         
       stop(:control) # by friendly fire
-      options(dec[1]) # for the channel
+      options!(dec[1]) # for the channel
       # start data channel
       start(dec[2].to_sym) if not dec[2].nil? 
     end
 
     # data xc
-    def trData(data="reductio ad absurdum",chan=:data,event=:onData)
+    def trData(data=Time.now.to_s,chan=:data,event=:onData)
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger: #{chan.to_s}/#{event.to_s}")
-      trigger(chan,event,data)      
+      trigger(data,chan,event)      
     end
 
-    def onData(_chan,_event,data)
+    def onData(data,_chan,_event)
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}]")
       begin
-        dec = dechan(_chan,_event,data)
+        dec = dechan(data,_chan,_event)
         @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] data size: #{dec.to_s.size}")
       rescue Exception => ex
         @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] data error: #{ex.inspect}")        
       end
-      # puts dec.inspect
-      # send to carbon dec if not @cfg[:pushare][:threads][:data][:onData][:carbon].nil?
     end
 
-    def trExit(data='all',chan=:control,event=:onExit)
+    def trCfg(data,chan=:control,event=:onCfg)
+      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] for #{chan.to_s}/#{event.to_s}")
+      trigger(data,chan,event)      
+    end
+
+    def onCfg(data,_chan,_event)
+      dec = dechan(data,_chan,_event)
+
+      return if dec.shift == @cfg[:pushare][:id]
+      # @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] self cfg")
+
+      dec.each do |cfg|
+        @cfg.merge!(cfg) if cfg.has_key? :pushare
+        @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] config #{cfg.to_s}")
+      end
+    end
+
+    # exit
+    def trExit(data=/.*/,chan=:control,event=:onExit)
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger: #{chan.to_s}/#{event.to_s}")
-      trigger(chan,event,data)      
+      trigger(data,chan,event)      
     end    
 
-    def onExit(_chan,_event,data)
-      dec = dechan(_chan,_event,data)
+    def onExit(data,_chan,_event)
+      dec = dechan(data,_chan,_event)
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] exit from: #{dec[0]}")
-      # false flag check
       exit(1)
     end
 

@@ -36,5 +36,6 @@ lib/pushare.rb
   s.add_development_dependency('ruby-xz')
   s.add_development_dependency('Ascii85')
   s.add_development_dependency('ohai')
+  s.add_development_dependency('eventmachine')
   s.add_runtime_dependency('gli','2.0.0')
 end

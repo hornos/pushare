@@ -2,17 +2,19 @@ module Pushare
 
   module Crypter
     def inbound(t=:client)
-      rsa_dec_key  = @cfg[:pushare][:keys][t][:sec]
-      rsa_dec_pas  = @cfg[:pushare][:keys][t][:pas]
-      @rsa_dec_key = OpenSSL::PKey::RSA.new(File.read(rsa_dec_key),rsa_dec_pas)
+      cfg = @cfg[:pushare][:keys]
+      raise ":#{t.to_s} not found" if not cfg.has_key? t
+      @rsa_dec_key = OpenSSL::PKey::RSA.new(File.read(cfg[t][:sec]),cfg[t][:pas])
     end
 
     def outbound(t=:server)
-      rsa_enc_key  = @cfg[:pushare][:keys][t][:pub]
-      @rsa_enc_key = OpenSSL::PKey::RSA.new(File.read(rsa_enc_key))
+      cfg = @cfg[:pushare][:keys]
+      raise ":#{t.to_s} not found" if not cfg.has_key? t
+      @rsa_enc_key = OpenSSL::PKey::RSA.new(File.read(cfg[t][:pub]))
     end
 
     def init_crypter(inb=:client,outb=:server)
+      raise ':keys not found' if not @cfg[:pushare].has_key? :keys
       inbound(inb)
       outbound(outb)
     end
@@ -32,16 +34,18 @@ module Pushare
     end
 
     def enciphr(data,chan)
+      cfg = @cfg[:pushare][:channels]
       @cipher.encrypt
-      @cipher.key = @cfg[:pushare][:channels][chan][:key]
-      @cipher.iv = @cfg[:pushare][:channels][chan][:iv]
+      @cipher.key = cfg[chan][:key]
+      @cipher.iv = cfg[chan][:iv]
       @cipher.update(data) + @cipher.final
     end
 
     def deciphr(data,chan)
+      cfg = @cfg[:pushare][:channels]
       @cipher.decrypt
-      @cipher.key = @cfg[:pushare][:channels][chan][:key]
-      @cipher.iv = @cfg[:pushare][:channels][chan][:iv]
+      @cipher.key = cfg[chan][:key]
+      @cipher.iv = cfg[chan][:iv]
       @cipher.update(data) + @cipher.final
     end
 
@@ -74,14 +78,14 @@ module Pushare
       data
     end
 
-    def enchan(_chan,_event,data)
+    def enchan(data,_chan,_event)
       chan,event = ffug(_chan,_event)
       @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] event: #{chan}/#{event}")
       enc = encode(@cfg[:pushare][:channels][chan.to_sym][:redux], data)
       enc
     end
 
-    def dechan(_chan,_event,data)
+    def dechan(data,_chan,_event)
       chan,event  = ffug(_chan,_event)
       @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] event: #{chan}/#{event}")
       dec = decode(@cfg[:pushare][:channels][chan.to_sym][:redux],data)

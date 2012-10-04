@@ -25,7 +25,6 @@ arg_name 'Configuration file'
 flag [:c,:config]
 
 desc 'id'
-default_value 'client'
 arg_name 'Agent id'
 flag [:i,:id]
 
@@ -33,29 +32,13 @@ desc 'server'
 arg_name ''
 command :server do |c|
   c.action do |global_options,options,args|
-    init_config(global_options,options,args)
+    server = Pushare::Server.new(@config)
 
-    agent = Pushare::Agent.new(@config,:server,:client)
-
-    client_thread = Thread.new do
-      client = Pushare::Agent.new(@config,:client,:server)
-      _chan,_event = client.guff(:control,:onKey)
-      client.socket[_chan].bind(_event) do |data|
-        client.onKey(_chan,_event,data)
-      end
-      client.connect
+    server.bind(:data,:onData) do |data,chan,event|
+      server.onData(data,chan,event)
     end
 
-    _chan,_event = agent.guff(:data,:onData)
-    agent.socket[_chan].bind(_event) do |data|
-      agent.onData(_chan,_event,data)
-    end
-
-    # key loop
-    agent.control_thread
-
-    # main loop
-    agent.connect
+    server.run
   end
 end
 
@@ -64,26 +47,24 @@ desc 'client'
 arg_name ''
 command :client do |c|
   c.action do |global_options,options,args|
-    init_config(global_options,options,args)
 
-    agent = Pushare::Agent.new(@config,:client,:server)
+    client = Pushare::Client.new(@config)
 
-    # events
-    _chan,_event = agent.guff(:control,:onKey)
-    agent.socket[_chan].bind(_event) do |data|
-      agent.onKey(_chan,_event,data)
+    client.bind(:control,:onKey) do |data,chan,event|
+      client.onKey(data,chan,event)
     end
 
-    _chan,_event = agent.guff(:control,:onExit)
-    agent.socket[_chan].bind(_event) do |data|
-      agent.onExit(_chan,_event,data)
+    client.bind(:control,:onExit) do |data,chan,event|
+      client.onExit(data,chan,event)
     end
 
-    # data loop
-    agent.data_thread
-   
-    # main loop
-    agent.connect
+    client.bind(:control,:onCfg) do |data,chan,event|
+      client.onCfg(data,chan,event)
+      # pp client.cfg
+      puts client.cfg.to_yaml
+    end
+
+    client.run
   end
 end
 
@@ -95,11 +76,17 @@ pre do |global,command,options,args|
   # chosen command
   # Use skips_pre before a command to skip this block
   # on that command only
-  # true
   begin
     @config = YAML.load(ERB.new(File.read(global[:config])).result)
   rescue Exception => e
     STDERR.puts "pre #{e.message}"
+  end
+
+  raise ':pushare not found' if not @config.has_key? :pushare
+  @config[:pushare][:id] = global[:id] || command.name.to_s
+  {:args=> args, :global=> global, :options=> options}.each do |k,v|
+    @config[:pushare][k] = v
+    puts "#{k.to_s}: #{v.inspect}"
   end
 end
 
@@ -114,22 +101,6 @@ on_error do |exception|
   # return false to skip default error handling
   puts exception.backtrace
   true
-end
-
-def init_config(global_options,options,args)
-  puts "Global:  #{global_options.inspect}"
-  puts "Options: #{options.inspect}"
-  puts "Args:    #{args.inspect}"
-  @config[:pushare][:id] = global_options[:id] if global_options.has_key? :id
-  @config[:pushare][:args] = args
-  @config[:pushare][:global_options] = global_options
-  @config[:pushare][:options] = options
-  Pusher.app_id = @config[:pushare][:pusher][:app_id]
-  Pusher.key = @config[:pushare][:pusher][:key]
-  Pusher.secret = @config[:pushare][:pusher][:secret]
-  Pusher.encrypted = true
-  PusherClient.logger = Logger.new(STDOUT)
-  PusherClient.logger.level = Logger::WARN
 end
 
 exit run(ARGV)

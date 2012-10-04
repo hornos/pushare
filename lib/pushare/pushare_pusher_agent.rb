@@ -8,38 +8,41 @@ module Pushare
       @socket = PusherClient::Socket.new(key, options)     
     end
 
-    def trigger(chan,event,data,call=nil)
+    def trigger(data,chan,event,callb=nil)
       _chan,_event = guff(chan,event)
-      count = @cfg[:pushare][:pusher][:retry][0] || 3
-      time = @cfg[:pushare][:pusher][:retry][1] || 5
+      raise 'guff error' if _chan.nil? or _event.nil?
+      cfg = @cfg[:pushare][:pusher]
+      count,time = cfg[:retry][0] || 3, cfg[:retry][1] || 5
+
+      data = [@cfg[:pushare][:id]] << data
+      data << callb if not callb.nil?
+
+      # todo: better retry
       begin
-        if call.nil?
-          data = [@cfg[:pushare][:id],data]
-        else
-          data = [@cfg[:pushare][:id],data,call]
-        end
-        Pusher[_chan].trigger(_event, enchan(_chan,_event,data) )
-      rescue Exception => ex # error: getaddrinfo:
+        Pusher[_chan].trigger(_event, enchan(data,_chan,_event) )
+      rescue Exception => ex
         sleep time
         count -= 1
+        @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] #{ex.inspect}")
         @log.warn("[#{@cfg[:pushare][:id]}/#{__method__}] retry: #{count}")
+        # binding.pry
         retry if count > 0
        end
     end
 
-    def trigger!(chan,event,data)
-      trigger(chan,event,data,:data)
+    def trigger!(data,chan,event)
+      trigger(data,chan,event,:data)
     end
 
     def stop(thread=:control)
-      return if @cfg[:pushare][:threads][thread][:thread].nil?
-      status = @cfg[:pushare][:threads][thread][:thread].status
-      return if status == false
-      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] stop #{thread.to_s} (#{status})")         
-      @cfg[:pushare][:threads][:control][:thread].exit
+      cfg = @cfg[:pushare][:threads]
+      return if cfg[thread][:thread].nil?
+      return if cfg[thread][:thread].status == false
+      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] stop #{thread.to_s}")         
+      cfg[:control][:thread].exit
     end
 
-    def options(data)
+    def options!(data)
       data.each do |chan,opts|
         @cfg[:pushare][:channels][chan.to_sym] = Hash[opts.map{ |k, v| [k.to_sym, v] }]
         @cfg[:pushare][:threads][chan.to_sym][:last] = Time.now.to_i
@@ -47,12 +50,13 @@ module Pushare
     end
 
     def start(thread=:data)
-      if not @cfg[:pushare][:threads][thread][:thread].nil?
-        status = @cfg[:pushare][:threads][thread][:thread].status
-        if status == 'sleep'
-          @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] resume data thread (#{status})")
-          @cfg[:pushare][:threads][thread][:thread].run
-        end
+      cfg = @cfg[:pushare][:threads]
+
+      return if cfg[thread][:thread].nil?
+
+      if cfg[thread][:thread].status == 'sleep'
+        @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] resume data thread")
+        cfg[thread][:thread].run
       end
     end
 
@@ -72,47 +76,68 @@ module Pushare
 
     def control_thread
       @cfg[:pushare][:threads][:control][:thread] = Thread.new do
-        # event machine
-        loop do
+        delay = @cfg[:pushare][:threads][:control][:delay]
+        
+        prKey = Proc.new do
           @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger key")
           trKey
-          sleep @cfg[:pushare][:threads][:control][:key_change]
+          # or
+          # keygen(:data)
+          # trCfg({:pushare=>{:channels=>{:data=>@cfg[:pushare][:channels][:data].dup}}})
         end
 
-      end
+        EventMachine::run do
+          EventMachine::schedule(prKey)
+          EventMachine::add_periodic_timer(delay, prKey)
+        end
+      end # Thread
     end
 
 
+    def config_thread
+      @cfg[:pushare][:threads][:control][:thread] = Thread.new do
+        delay = @cfg[:pushare][:threads][:control][:delay]
+        
+        prKey = Proc.new do
+          @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger key")
+          keygen(:data)
+          cfg=[{:pushare=>{:channels=>{:data=>@cfg[:pushare][:channels][:data].dup}}},
+           {:pushare=>{:guffs=>@cfg[:pushare][:guffs].dup}}]
+          trCfg(cfg)
+        end
+
+        EventMachine::run do
+          EventMachine::schedule(prKey)
+          EventMachine::add_periodic_timer(delay, prKey)
+        end
+      end # Thread
+    end
+
     def data_thread
       @cfg[:pushare][:threads][:data][:thread] = Thread.new do
-        last = 0
-        # todo event machine
-        loop do
-          chan = @cfg[:pushare][:channels][:data]
-          thread = @cfg[:pushare][:threads][:data]
-          if chan.has_key? :iv
-            data_send = thread[:data_send]
-            last = thread[:last]
-            
-            delay = Time.now.to_i - last
-            if delay > thread[:delay]
-              @log.warn("[#{@cfg[:pushare][:id]}/#{__method__}] timeout") 
-              [:iv,:key,:time].each {|k| @cfg[:pushare][:channels][:data].delete(k)}             
-            else
+        chan = @cfg[:pushare][:channels][:data]
+        thread = @cfg[:pushare][:threads][:data]       
+        delay = thread[:delay]
 
-              # send data
-              thread[:trData].each do |task,opts|
-                @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] task: #{task.to_s}")
-                trData(send(task.to_sym,opts))
-              end
-              sleep data_send
-            end           
-          else
-            @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] waiting")
-            Thread.stop          
+        prData = Proc.new do
+          if thread[:last].nil? or Time.now.to_i - thread[:last] > thread[:timeout]
+            @log.warn("[#{@cfg[:pushare][:id]}/#{__method__}] waiting") 
+            # [:iv,:key,:time].each {|k| @cfg[:pushare][:channels][:data].delete(k)}
+            Thread.stop
           end
-        end # data loop
-      end # Thread
+
+          thread[:trData].each do |task,opts|
+            @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] task: #{task.to_s}")
+            trData(send(task.to_sym,opts))
+          end
+        end
+
+        EventMachine::run do
+          EventMachine::schedule(prData)
+          EventMachine::add_periodic_timer(delay, prData)
+        end
+        
+      end
     end
 
   end
