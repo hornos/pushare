@@ -101,9 +101,8 @@ module Pushare
         prKey = Proc.new do
           @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger key")
           keygen(:data)
-          cfg=[{:pushare=>{:channels=>{:data=>@cfg[:pushare][:channels][:data].dup}}},
-           {:pushare=>{:guffs=>@cfg[:pushare][:guffs].dup}}]
-          trCfg(cfg)
+          trCfg({:pushare=>{:channels=>{:data=>@cfg[:pushare][:channels][:data].dup}}})
+          trCfg({:pushare=>{:guffs=>@cfg[:pushare][:guffs].dup}})
         end
 
         EventMachine::run do

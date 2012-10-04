@@ -1,3 +1,10 @@
+class Hash
+  def recursive_symbolize_keys!
+    symbolize_keys!
+    values.select { |v| v.is_a?(Hash) }.each { |h| h.recursive_symbolize_keys! }
+  end
+end
+
 module Pushare
   module Events
 
@@ -55,8 +62,11 @@ module Pushare
       # @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] self cfg")
 
       dec.each do |cfg|
-        @cfg.merge!(cfg) if cfg.has_key? :pushare
-        @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] config #{cfg.to_s}")
+        cfg.recursive_symbolize_keys!
+        if cfg.has_key? :pushare
+          @cfg.merge!(cfg)
+          @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] #{cfg.to_s}")
+        end
       end
 
       start(:data)
