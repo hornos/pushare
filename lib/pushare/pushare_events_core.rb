@@ -58,6 +58,8 @@ module Pushare
         @cfg.merge!(cfg) if cfg.has_key? :pushare
         @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] config #{cfg.to_s}")
       end
+
+      start(:data)
     end
 
     # exit

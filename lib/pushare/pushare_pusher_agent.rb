@@ -114,7 +114,10 @@ module Pushare
     end
 
     def data_thread
+      @cfg[:pushare][:threads][:data] ||= {}
+
       @cfg[:pushare][:threads][:data][:thread] = Thread.new do
+        Thread.stop if not @cfg[:pushare][:channels].has_key? :data
         chan = @cfg[:pushare][:channels][:data]
         thread = @cfg[:pushare][:threads][:data]       
         delay = thread[:delay]
@@ -122,7 +125,6 @@ module Pushare
         prData = Proc.new do
           if thread[:last].nil? or Time.now.to_i - thread[:last] > thread[:timeout]
             @log.warn("[#{@cfg[:pushare][:id]}/#{__method__}] waiting") 
-            # [:iv,:key,:time].each {|k| @cfg[:pushare][:channels][:data].delete(k)}
             Thread.stop
           end
 
