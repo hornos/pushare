@@ -1,3 +1,9 @@
+module EventMachine
+  def EventMachine.schedule_periodic_timer(proc,delay=120)
+    schedule(proc)
+    add_periodic_timer(delay, proc)
+  end
+end
 
 module Pushare
 
@@ -25,6 +31,7 @@ module Pushare
         count -= 1
         @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] #{ex.inspect}")
         @log.warn("[#{@cfg[:pushare][:id]}/#{__method__}] retry: #{count}")
+        puts ex.backtrace
         # binding.pry
         retry if count > 0
        end
@@ -77,19 +84,11 @@ module Pushare
     def control_thread
       @cfg[:pushare][:threads][:control][:thread] = Thread.new do
         delay = @cfg[:pushare][:threads][:control][:delay]
-        
-        prKey = Proc.new do
-          @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger key")
-          trKey
-          # or
-          # keygen(:data)
-          # trCfg({:pushare=>{:channels=>{:data=>@cfg[:pushare][:channels][:data].dup}}})
+
+        EventMachine::run do 
+          EventMachine::schedule_periodic_timer( Proc.new { trKey }, delay )
         end
 
-        EventMachine::run do
-          EventMachine::schedule(prKey)
-          EventMachine::add_periodic_timer(delay, prKey)
-        end
       end # Thread
     end
 
@@ -98,17 +97,13 @@ module Pushare
       @cfg[:pushare][:threads][:control][:thread] = Thread.new do
         delay = @cfg[:pushare][:threads][:control][:delay]
         
-        prKey = Proc.new do
-          @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] trigger key")
-          keygen(:data)
-          trCfg({:pushare=>{:channels=>{:data=>@cfg[:pushare][:channels][:data].dup}}})
-          trCfg({:pushare=>{:guffs=>@cfg[:pushare][:guffs].dup}})
+        prCfg = Proc.new do
+          data = {:pushare=>{:guffs=>@cfg[:pushare][:guffs].dup,
+                             :channels=>{:data=>@cfg[:pushare][:channels][:data].dup}}}
+          trCfg(data)
         end
 
-        EventMachine::run do
-          EventMachine::schedule(prKey)
-          EventMachine::add_periodic_timer(delay, prKey)
-        end
+        EventMachine::run { EventMachine::schedule_periodic_timer(prCfg,delay) }
       end # Thread
     end
 
@@ -130,15 +125,12 @@ module Pushare
           thread[:trData].each do |task,opts|
             @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] task: #{task.to_s}")
             trData(send(task.to_sym,opts))
-          end
+          end if not thread[:trData].nil?
         end
 
-        EventMachine::run do
-          EventMachine::schedule(prData)
-          EventMachine::add_periodic_timer(delay, prData)
-        end
+        EventMachine::run { EventMachine::schedule_periodic_timer(prData,delay) }
         
-      end
+      end # Thread
     end
 
   end

@@ -78,8 +78,8 @@ module Pushare
 
     def run
       client_thread
-      # control_thread
-      config_thread
+      control_thread
+      # config_thread
       connect
     end
   end

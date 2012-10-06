@@ -12,6 +12,19 @@ class Hash
     end
     self
   end
+
+  # http://rails.rubyonrails.org/classes/ActiveSupport/CoreExtensions/Hash/DeepMerge.html
+  def deep_merge(other_hash)
+    self.merge(other_hash) do |key, oldval, newval|
+      oldval = oldval.to_hash if oldval.respond_to?(:to_hash)
+      newval = newval.to_hash if newval.respond_to?(:to_hash)
+      oldval.class.to_s == 'Hash' && newval.class.to_s == 'Hash' ? oldval.deep_merge(newval) : newval
+    end
+  end
+  def deep_merge!(other_hash)
+    replace(deep_merge(other_hash))
+  end
+
 end
 
 module Pushare
@@ -20,27 +33,27 @@ module Pushare
     # key xc
     def trKey(data=:data,chan=:control,event=:onKey)
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] #{chan.to_s}/#{event.to_s} for #{data.to_s}")
-      trigger(keygen(data),chan,event)
+      trigger(keygen!(data),chan,event)
     end
 
     def trKey!(chan=:control,event=:onKey)
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] #{chan.to_s}/#{event.to_s} for #{data.to_s}")
-      trigger!(keygen(data),chan,event,:data)
+      trigger!(keygen!(data),chan,event,:data)
     end
 
     def onKey(data,_chan,_event)
-      dec = dechan(data,_chan,_event)
-      if dec[0] == @cfg[:pushare][:id]
+      src,opts,dst = dechan(data,_chan,_event)
+      if src == @cfg[:pushare][:id]
         @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] self key")
         return
       end
 
-      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] keygen: #{dec[0]}")
+      @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] keygen: #{src}")
         
       stop(:control) # by friendly fire
-      options!(dec[1]) # for the channel
-      # start data channel
-      start(dec[2].to_sym) if not dec[2].nil? 
+      options!(opts) # for the channel
+      # start traget channel
+      start(dst.to_sym) if not dst.nil? 
     end
 
     # data xc
@@ -59,7 +72,7 @@ module Pushare
       end
     end
 
-    def trCfg(data,chan=:control,event=:onCfg)
+    def trCfg(data,chan=:data,event=:onCfg)
       @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] for #{chan.to_s}/#{event.to_s}")
       trigger(data,chan,event)      
     end
@@ -67,18 +80,18 @@ module Pushare
     def onCfg(data,_chan,_event)
       dec = dechan(data,_chan,_event)
 
+      @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] #{dec.inspect}")
       return if dec.shift == @cfg[:pushare][:id]
-      # @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] self cfg")
 
-      dec.each do |cfg|
-        cfg.recursive_symbolize_keys!
-        if cfg.has_key? :pushare
-          @cfg.merge!(cfg)
-          @log.info("[#{@cfg[:pushare][:id]}/#{__method__}] #{cfg.to_s}")
+      dec.each do |d|
+        d.recursive_symbolize_keys!
+        if d.has_key? :pushare
+          @cfg.deep_merge!(d)
+          @log.debug("[#{@cfg[:pushare][:id]}/#{__method__}] #{d.to_s}")
         end
       end
 
-      start(:data)
+      start(:data) # threads/data/thread
     end
 
     # exit

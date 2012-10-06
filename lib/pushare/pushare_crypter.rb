@@ -92,7 +92,7 @@ module Pushare
       dec
     end
 
-    def keygen(chan=:data,len=32)
+    def keygen!(chan=:data,len=32)
       @cfg[:pushare][:channels][chan][:iv] = SecureRandom.urlsafe_base64(len)
       @cfg[:pushare][:channels][chan][:key] = SecureRandom.urlsafe_base64(len)
       @cfg[:pushare][:channels][chan][:time] = Time.now.to_i

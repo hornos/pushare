@@ -6,6 +6,7 @@
 *.gem
 *.yml
 tmp/*
+tmp*/*
 test/*
 *.old
 Gemfile.lock
